@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atmospheric Bulletin — Air Quality Index</title>
+
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+    --paper:        #F6F2E9;
+    --paper-deep:   #EFE9DB;
+    --ink:          #1E2A38;
+    --ink-soft:     #536176;
+    --rule:         #C4BBA6;
+    --rule-strong:  #A79C82;
+    --steel:        #2F5F76;
+    --steel-deep:   #24485B;
+
+    --good:         #4B7A51;
+    --fair:         #7C8C46;
+    --moderate:     #B98A24;
+    --poor:         #BD6B37;
+    --verypoor:     #9E3B3B;
+}
+
+*{ box-sizing:border-box; }
+
+body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:32px 16px;
+    font-family:'Inter', sans-serif;
+    color:var(--ink);
+    background-color:var(--paper);
+    background-image:
+        repeating-linear-gradient(to bottom, transparent, transparent 27px, rgba(30,42,56,0.028) 28px),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+/* ---------- Bulletin frame ---------- */
+
+.bulletin{
+    position:relative;
+    width:100%;
+    max-width:460px;
+    background:var(--paper);
+    border:1px solid var(--rule-strong);
+    padding:10px;
+    box-shadow:0 18px 40px -18px rgba(30,42,56,0.35);
+}
+
+.bulletin::before{
+    content:"";
+    position:absolute;
+    inset:5px;
+    border:1px solid var(--rule);
+    pointer-events:none;
+}
+
+.bulletin-inner{
+    position:relative;
+    padding:30px 34px 26px;
+}
+
+.corner{
+    position:absolute;
+    width:14px;
+    height:14px;
+    border:1px solid var(--ink-soft);
+    opacity:0.55;
+}
+.corner.tl{ top:2px; left:2px; border-right:none; border-bottom:none; }
+.corner.tr{ top:2px; right:2px; border-left:none; border-bottom:none; }
+.corner.bl{ bottom:2px; left:2px; border-right:none; border-top:none; }
+.corner.br{ bottom:2px; right:2px; border-left:none; border-top:none; }
+
+/* ---------- Header ---------- */
+
+.masthead{
+    text-align:center;
+    padding-bottom:18px;
+    border-bottom:1px solid var(--rule);
+}
+
+.compass{
+    width:34px;
+    height:34px;
+    margin:0 auto 10px;
+    display:block;
+}
+
+.eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:0.22em;
+    text-transform:uppercase;
+    color:var(--steel);
+    margin:0 0 6px;
+}
+
+h1{
+    font-family:'Fraunces', serif;
+    font-optical-sizing:auto;
+    font-weight:600;
+    font-size:26px;
+    line-height:1.15;
+    margin:0 0 8px;
+    color:var(--ink);
+}
+
+.subtitle{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin:0;
+    font-style:italic;
+    font-family:'Fraunces', serif;
+}
+
+/* ---------- Form ---------- */
+
+.field-block{
+    padding:26px 0 6px;
+}
+
+label{
+    display:block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:8px;
+}
+
+.input-row{
+    display:flex;
+    gap:10px;
+}
+
+input[type="text"]{
+    flex:1;
+    min-width:0;
+    padding:11px 4px;
+    font-family:'Inter', sans-serif;
+    font-size:15px;
+    color:var(--ink);
+    background:transparent;
+    border:none;
+    border-bottom:1.5px solid var(--rule-strong);
+    outline:none;
+    transition:border-color 0.2s ease;
+}
+
+input[type="text"]::placeholder{
+    color:#9C947F;
+}
+
+input[type="text"]:focus{
+    border-bottom-color:var(--steel);
+}
+
+button{
+    padding:0 20px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--paper);
+    background:var(--steel);
+    border:1px solid var(--steel-deep);
+    cursor:pointer;
+    transition:background 0.2s ease, transform 0.1s ease;
+    white-space:nowrap;
+}
+
+button:hover{ background:var(--steel-deep); }
+button:active{ transform:translateY(1px); }
+button:disabled{ opacity:0.55; cursor:default; }
+
+input:focus-visible,
+button:focus-visible{
+    outline:2px solid var(--steel);
+    outline-offset:2px;
+}
+
+/* ---------- Status ---------- */
+
+.status{
+    display:none;
+    padding:14px 0 4px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    letter-spacing:0.04em;
+    text-align:center;
+}
+
+.status.show{ display:block; }
+.status.loading{ color:var(--ink-soft); }
+.status.error{ color:var(--verypoor); }
+
+/* ---------- Result ---------- */
+
+.result{
+    display:none;
+    padding-top:22px;
+    margin-top:6px;
+    border-top:1px solid var(--rule);
+    animation:reveal 0.4s ease;
+}
+
+.result.show{ display:block; }
+
+@keyframes reveal{
+    from{ opacity:0; transform:translateY(4px); }
+    to{ opacity:1; transform:translateY(0); }
+}
+
+.result-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:2px;
+}
+
+.result-city{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:19px;
+}
+
+.result-time{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9.5px;
+    color:var(--ink-soft);
+    letter-spacing:0.04em;
+}
+
+.report-no{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9.5px;
+    color:var(--ink-soft);
+    margin:0 0 18px;
+    letter-spacing:0.04em;
+}
+
+.gauge-wrap{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:4px 0 8px;
+}
+
+.gauge-wrap svg{ width:210px; height:auto; overflow:visible; }
+
+#needleGroup{
+    transform-origin:100px 100px;
+    transition:transform 0.7s cubic-bezier(.34,1.4,.4,1);
+}
+
+.reading-figures{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    margin-top:-22px;
+}
+
+.aqi-number{
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:40px;
+    line-height:1;
+}
+
+.aqi-scale{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--ink-soft);
+}
+
+.quality-pill{
+    margin-top:8px;
+    padding:5px 16px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    border:1px solid currentColor;
+}
+
+.legend{
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    margin-top:16px;
+    flex-wrap:wrap;
+}
+
+.legend span{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:8.5px;
+    letter-spacing:0.03em;
+    color:var(--ink-soft);
+}
+
+.legend i{
+    width:8px;
+    height:8px;
+    display:inline-block;
+    border-radius:1px;
+}
+
+.description{
+    text-align:center;
+    font-size:13px;
+    color:var(--ink-soft);
+    line-height:1.55;
+    margin:18px 0 4px;
+    padding:0 6px;
+}
+
+/* ---------- Readings table ---------- */
+
+.readings{
+    margin-top:20px;
+    border-top:1px dashed var(--rule);
+    padding-top:14px;
+}
+
+.readings-title{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.16em;
+    text-transform:uppercase;
+    color:var(--steel);
+    margin:0 0 10px;
+}
+
+.readings-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px 18px;
+}
+
+.readings-grid div{
+    display:flex;
+    justify-content:space-between;
+    padding:5px 0;
+    border-bottom:1px solid var(--paper-deep);
+    font-size:12px;
+}
+
+.readings-grid .label{ color:var(--ink-soft); }
+.readings-grid .value{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:500;
+}
+
+/* ---------- Footer ---------- */
+
+.footer{
+    margin-top:26px;
+    padding-top:14px;
+    border-top:1px solid var(--rule);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+}
+
+.footer p{
+    margin:0;
+    font-size:9.5px;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+    letter-spacing:0.02em;
+}
+
+.seal{
+    width:30px;
+    height:30px;
+    flex-shrink:0;
+    opacity:0.6;
+}
+
+@media (max-width:420px){
+    .bulletin-inner{ padding:24px 20px 20px; }
+    h1{ font-size:22px; }
+    .aqi-number{ font-size:34px; }
+}
+
+@media (prefers-reduced-motion: reduce){
+    #needleGroup{ transition:none; }
+    .result{ animation:none; }
+}
+
+</style>
+</head>
+<body>
+
+<div class="bulletin">
+    <div class="corner tl"></div>
+    <div class="corner tr"></div>
+    <div class="corner bl"></div>
+    <div class="corner br"></div>
+
+    <div class="bulletin-inner">
+
+        <div class="masthead">
+            <svg class="compass" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="17" stroke="#1E2A38" stroke-width="1"/>
+                <circle cx="20" cy="20" r="1.6" fill="#1E2A38"/>
+                <path d="M20 5 L23 20 L20 35 L17 20 Z" fill="#2F5F76" opacity="0.85"/>
+                <path d="M5 20 L20 17 L35 20 L20 23 Z" fill="#1E2A38" opacity="0.5"/>
+            </svg>
+            <p class="eyebrow">Meteorological Bulletin</p>
+            <h1>Air Quality Index</h1>
+            <p class="subtitle">A station reading, taken on request</p>
+        </div>
+
+        <div class="field-block">
+            <label for="city">City or town</label>
+            <div class="input-row">
+                <input type="text" id="city" placeholder="e.g. Patiala" autocomplete="off">
+                <button onclick="getAQI()" id="checkBtn">Check Reading</button>
+            </div>
+        </div>
+
+        <p class="status" id="status"></p>
+
+        <div class="result" id="result">
+            <div class="result-head">
+                <span class="result-city" id="resCity">—</span>
+                <span class="result-time" id="resTime">—</span>
+            </div>
+            <p class="report-no" id="reportNo">Report No. —</p>
+
+            <div class="gauge-wrap">
+                <svg viewBox="0 0 200 118" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M20,100 A80,80 0 0,1 35.28,52.98" stroke="#4B7A51" stroke-width="16" fill="none"/>
+                    <path d="M35.28,52.98 A80,80 0 0,1 75.28,23.92" stroke="#7C8C46" stroke-width="16" fill="none"/>
+                    <path d="M75.28,23.92 A80,80 0 0,1 124.72,23.92" stroke="#B98A24" stroke-width="16" fill="none"/>
+                    <path d="M124.72,23.92 A80,80 0 0,1 164.72,52.98" stroke="#BD6B37" stroke-width="16" fill="none"/>
+                    <path d="M164.72,52.98 A80,80 0 0,1 180,100" stroke="#9E3B3B" stroke-width="16" fill="none"/>
+                    <g id="needleGroup">
+                        <line x1="100" y1="100" x2="100" y2="32" stroke="#1E2A38" stroke-width="2.5" stroke-linecap="round"/>
+                    </g>
+                    <circle cx="100" cy="100" r="5.5" fill="#1E2A38"/>
+                </svg>
+                <div class="reading-figures">
+                    <span class="aqi-number" id="aqiNumber">–</span>
+                    <span class="aqi-scale">/ 5</span>
+                </div>
+                <div class="quality-pill" id="qualityPill">—</div>
+            </div>
+
+            <div class="legend">
+                <span><i style="background:#4B7A51"></i>Good</span>
+                <span><i style="background:#7C8C46"></i>Fair</span>
+                <span><i style="background:#B98A24"></i>Moderate</span>
+                <span><i style="background:#BD6B37"></i>Poor</span>
+                <span><i style="background:#9E3B3B"></i>Very poor</span>
+            </div>
+
+            <p class="description" id="description"></p>
+
+            <div class="readings">
+                <p class="readings-title">Pollutant readings (µg/m³)</p>
+                <div class="readings-grid" id="readingsGrid"></div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Source: OpenWeather<br>Air Pollution API</p>
+            <svg class="seal" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="16" stroke="#1E2A38" stroke-width="1"/>
+                <circle cx="20" cy="20" r="12" stroke="#1E2A38" stroke-width="0.6"/>
+                <text x="20" y="24" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="#1E2A38">AQ</text>
+            </svg>
+        </div>
+
+    </div>
+</div>
+
+<script>
+
+const QUALITY = {
+    1:{ label:"Good",      color:"#4B7A51", desc:"Air quality is considered satisfactory, and air pollution poses little or no risk." },
+    2:{ label:"Fair",      color:"#7C8C46", desc:"Air quality is acceptable. Unusually sensitive individuals may experience minor effects." },
+    3:{ label:"Moderate",  color:"#B98A24", desc:"Members of sensitive groups may experience mild health effects with prolonged exposure." },
+    4:{ label:"Poor",      color:"#BD6B37", desc:"Everyone may begin to experience health effects; sensitive groups may see more serious effects." },
+    5:{ label:"Very Poor", color:"#9E3B3B", desc:"Health warning of emergency conditions. The entire population is more likely to be affected." }
+};
+
+const COMPONENT_LABELS = [
+    { key:"pm2_5", label:"PM2.5" },
+    { key:"pm10",  label:"PM10"  },
+    { key:"o3",    label:"Ozone (O₃)" },
+    { key:"no2",   label:"NO₂"   },
+    { key:"so2",   label:"SO₂"   },
+    { key:"co",    label:"CO"    }
+];
+
+const cityInput   = document.getElementById("city");
+const checkBtn    = document.getElementById("checkBtn");
+const statusEl    = document.getElementById("status");
+const resultEl    = document.getElementById("result");
+
+cityInput.addEventListener("keydown", function(e){
+    if(e.key === "Enter") getAQI();
+});
+
+function setStatus(message, type){
+    statusEl.textContent = message || "";
+    statusEl.className = "status" + (message ? " show" : "") + (type ? " " + type : "");
+}
+
+async function getAQI(){
+
+    const city = cityInput.value.trim();
+
+    if(!city){
+        setStatus("Enter a city name to take a reading.", "error");
+        resultEl.classList.remove("show");
+        return;
+    }
+
+    const apiKey = "6f704f115e6ea2974d37805effdcb56e";
+    const encodedCity = encodeURIComponent(city);
+
+    resultEl.classList.remove("show");
+    setStatus("Reading atmospheric data \u2026", "loading");
+    checkBtn.disabled = true;
+
+    try{
+
+        // Step 1: resolve the city to coordinates
+        const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?q=${encodedCity}&appid=${apiKey}`;
+        const weatherResponse = await fetch(weatherUrl);
+        const weatherData = await weatherResponse.json();
+
+        if(Number(weatherData.cod) !== 200){
+            setStatus("Station not found. Check the spelling and try again.", "error");
+            checkBtn.disabled = false;
+            return;
+        }
+
+        const { lat, lon } = weatherData.coord;
+
+        // Step 2: read the air pollution index at those coordinates
+        const aqiUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${apiKey}`;
+        const aqiResponse = await fetch(aqiUrl);
+        const aqiData = await aqiResponse.json();
+
+        const reading = aqiData.list[0];
+        const aqi = reading.main.aqi;
+        const quality = QUALITY[aqi] || QUALITY[3];
+
+        renderResult(weatherData.name, aqi, quality, reading.components);
+        setStatus("", null);
+
+    }
+    catch(error){
+        setStatus("Could not reach the station. Check your connection and try again.", "error");
+    }
+    finally{
+        checkBtn.disabled = false;
+    }
+}
+
+function renderResult(cityName, aqi, quality, components){
+
+    document.getElementById("resCity").textContent = cityName;
+
+    const now = new Date();
+    document.getElementById("resTime").textContent =
+        now.toLocaleDateString(undefined, { day:"2-digit", month:"short" }) + " \u00B7 " +
+        now.toLocaleTimeString(undefined, { hour:"2-digit", minute:"2-digit" });
+
+    document.getElementById("reportNo").textContent =
+        "Report No. AQ-" + now.getFullYear() + "-" + String(Math.floor(1000 + Math.random()*9000));
+
+    document.getElementById("aqiNumber").textContent = aqi;
+    document.getElementById("aqiNumber").style.color = quality.color;
+
+    const pill = document.getElementById("qualityPill");
+    pill.textContent = quality.label;
+    pill.style.color = quality.color;
+
+    document.getElementById("description").textContent = quality.desc;
+
+    // rotate the gauge needle: -90deg (far left) through +90deg (far right)
+    const rotation = -90 + (aqi - 0.5) * 36;
+    document.getElementById("needleGroup").style.transform = `rotate(${rotation}deg)`;
+
+    const grid = document.getElementById("readingsGrid");
+    grid.innerHTML = "";
+    COMPONENT_LABELS.forEach(item => {
+        const value = components[item.key];
+        if(value === undefined) return;
+        const row = document.createElement("div");
+        row.innerHTML = `<span class="label">${item.label}</span><span class="value">${value.toFixed(1)}</span>`;
+        grid.appendChild(row);
+    });
+
+    resultEl.classList.add("show");
+}
+
+</script>
+
+</body>
+</html>
